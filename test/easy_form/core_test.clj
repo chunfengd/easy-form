@@ -1,7 +1,10 @@
 (ns easy-form.core-test
-  (:require [clojure.test :refer :all]
-            [easy-form.core :refer :all]))
+  (:require
+   [midje.sweet :refer :all]
+   [clojure.string :as str])
+  (:require
+   [easy-form.core :refer :all]))
 
-(deftest a-test
-  (testing "FIXME, I fail."
-    (is (= 0 1))))
+(fact
+ "test demo"
+ (str/split "a/b/c" #"/") => ["a" "b" "d"])
