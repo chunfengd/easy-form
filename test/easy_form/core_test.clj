@@ -51,11 +51,58 @@
               :gid :username
               :label "Username"})))
 
-#_(fact "form with children"
-        (parse-form [:group.user {:level 1}
-                     :text.username
-                     (list
-                      :number.age)
-                     [:empty {:id "added"}]
-                     [:group.account
-                      :number.id]]))
+(facts
+ "parse a item with children"
+ (fact "simple children"
+       (parse-form [:group.user
+                    :text.name
+                    [:number.id]])
+       =>
+       (just {:tag :group
+              :id :user
+              :gid :user
+              :name "user"
+              :label "User"
+              :children
+              (just {:tag :text
+                     :id :name
+                     :gid :user.name
+                     :name "user.name"
+                     :label "Name"
+                     :children ()}
+                    {:tag :number
+                     :id :id
+                     :gid :user.id
+                     :name "user.id"
+                     :label "Id"
+                     :children ()})}))
+ (fact "list children"
+       (parse-form [:group.user
+                    (list
+                     :text.name)
+                    (for [i (range 2)]
+                      [:text {:id (keyword (str "order" i))}])])
+       =>
+       (just {:tag :group
+              :id :user
+              :gid :user
+              :name "user"
+              :label "User"
+              :children
+              (just (cons
+                     {:tag :text
+                      :id :name
+                      :gid :user.name
+                      :name "user.name"
+                      :label "Name"
+                      :children ()}
+                     (for [i (range 2)
+                           :let [name (str "order" i)
+                                 fullname (str "user." name)]]
+                       {:tag :text
+                        :id (keyword name)
+                        :gid (keyword fullname)
+                        :name fullname
+                        :label (str/capitalize name)
+                        :children ()})))}))
+ )
