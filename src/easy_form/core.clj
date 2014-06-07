@@ -57,7 +57,13 @@
                  values)]
     [values errors]))
 
-(declare render-form)
+(defn render-form [item style]
+  (cond
+   (map? item) (let [{tag :tag} item]
+                 ((or (tag style) (:default style))
+                  item style))
+   (seq? item) (for [x item]
+                 (render-form x style))))
 
 (def default-style
   {:default (fn [{:keys [tag id name]} style]
@@ -96,11 +102,3 @@
                 label]]])
    })
 
-(defn render-element [item style]
-  (let [{tag :tag} item]
-    ((or (tag style) (:default style)) item style)))
-
-(defn render-form [item style]
-  (cond
-   (map? item) (render-element item style)
-   (seq? item) (for [x item] (render-form x style))))
