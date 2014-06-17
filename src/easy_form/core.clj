@@ -1,5 +1,14 @@
 (ns easy-form.core
-  (:require [clojure.string :as str]))
+  (:require
+   [clojure.string :as str]
+   [easy-form.util :refer :all]))
+
+(def ^{:dynamic true} *default-parser-pool*
+  {:int (with-meta str->int {:note "not a valid integer"})
+   :float (with-meta str->num {:note "Not a valid number"})})
+
+(def ^{:dynamic true} *default-validation-poll*
+  {:require (with-meta #(-> % nil? not) {:note "Required"})})
 
 (declare parse-element* parse-seq*)
 
@@ -14,8 +23,12 @@
         element (merge {:tag (keyword tag)
                         :id (keyword id)}
                        option)
-        {id :id label :label} element
+        {:keys [id label parser]} element
         label (or label (and id (-> id name str/capitalize)))
+        parser (and parser
+                    (if (keyword? parser)
+                      (parser *default-parser-pool*)
+                      parser))
         next-ancesters (if id
                          (conj ancesters id)
                          ancesters)
@@ -26,7 +39,8 @@
       :children (parse-seq* next-ancesters children)
       :gid (keyword name)
       :name name
-      :label label)))
+      :label label
+      :parser parser)))
 
 (defn- parse-seq* [ancesters items]
   (->> items
