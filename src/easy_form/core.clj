@@ -79,6 +79,14 @@
    (seq? item) (for [x item]
                  (render-form x style))))
 
+(defn pre-form-seq [item]
+  (lazy-seq
+   (cons item (mapcat pre-form-seq (:children item)))))
+
+(defn post-form-seq [item]
+  (concat (mapcat post-form-seq (:children item))
+          (list item)))
+
 (def default-style
   {:default (fn [{:keys [tag id name]} style]
               [:input {:type tag :id id :name name}])
