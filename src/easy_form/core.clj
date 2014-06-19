@@ -4,7 +4,7 @@
    [easy-form.util :refer :all]))
 
 (def ^{:dynamic true} *default-parser-pool*
-  {:int (with-meta str->int {:note "not a valid integer"})
+  {:int (with-meta str->int {:note "Not a valid integer"})
    :float (with-meta str->num {:note "Not a valid number"})})
 
 (def ^{:dynamic true} *default-validation-poll*
@@ -57,20 +57,6 @@
    (vector? item) (parse-element* [] item)
    (seq? item) (parse-seq* [] item)))
 
-(defn params->values [params item & [[values errors]]]
-  (let [{:keys [id children name ancesters]} item
-        ;; _ (println "values & erros" values errors)
-        [values errors] (reduce #(params->values params %2 %1)
-                                [values errors]
-                                children)
-        value (params name)
-        ;; _ (println (str {:id id :value value}))
-        ;; _ (println item)
-        values (if value
-                 (assoc-in values (conj ancesters id) value)
-                 values)]
-    [values errors]))
-
 (defn render-form [item style]
   (cond
    (map? item) (let [{tag :tag} item]
@@ -78,14 +64,6 @@
                   item style))
    (seq? item) (for [x item]
                  (render-form x style))))
-
-(defn pre-form-seq [item]
-  (lazy-seq
-   (cons item (mapcat pre-form-seq (:children item)))))
-
-(defn post-form-seq [item]
-  (concat (mapcat post-form-seq (:children item))
-          (list item)))
 
 (def default-style
   {:default (fn [{:keys [tag id name]} style]
@@ -96,3 +74,42 @@
    :form (fn [{:keys [tag id name children attr]} style]
            [:form attr
             (render-form children style)])})
+
+(defn extract-params
+  "(extract-params {\"user.name\" \"name\"
+                   \"user.id\" \"1\"
+                   \"user.password\" nil})
+  ;;=> {:user {:id 1, :name \"name\"}}"
+  [params]
+  (reduce
+   (fn [m [k v]]
+     (let [ks (->> (str/split k #"\.")
+                   (map keyword))]
+       (assoc-in m ks v)))
+   {} params))
+
+(defn pre-form-seq [item]
+  (lazy-seq
+   (cons item (mapcat pre-form-seq (:children item)))))
+
+(defn post-form-seq [item]
+  (concat (mapcat post-form-seq (:children item))
+          (list item)))
+
+(defn params->values [params item]
+  (reduce
+   (fn [[values errors] {:keys [name parser] :as x}]
+     (if-let [[_ value] (find params name)]
+       (try
+         [(assoc values name
+                 (cond-> (nil-if-empty value)
+                         parser parser))
+          errors]
+         (catch Throwable e
+           [values (assoc errors name
+                          {:err e
+                           :item x
+                           :note (or (-> parser meta :note)
+                                     "Invalid value")})]))
+       [values errors]))
+   [{} {}] (post-form-seq item)))
