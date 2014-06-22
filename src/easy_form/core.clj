@@ -7,7 +7,7 @@
   {:int (with-meta str->int {:note "Not a valid integer"})
    :float (with-meta str->num {:note "Not a valid number"})})
 
-(def ^{:dynamic true} *default-validation-poll*
+(def ^{:dynamic true} *default-validator-poll*
   {:require (with-meta #(-> % nil? not) {:note "Required"})})
 
 (declare parse-element* parse-seq*)
@@ -23,12 +23,16 @@
         element (merge {:tag (keyword tag)
                         :id (keyword id)}
                        option)
-        {:keys [id label parser]} element
+        {:keys [id label parser validators]} element
         label (or label (and id (-> id name str/capitalize)))
         parser (and parser
                     (if (keyword? parser)
                       (parser *default-parser-pool*)
                       parser))
+        validators (->> validators
+                        (map #(if (keyword? %)
+                               (% *default-validator-poll*)
+                               %)))
         next-ancesters (if id
                          (conj ancesters id)
                          ancesters)
@@ -40,7 +44,8 @@
       :gid (keyword name)
       :name name
       :label label
-      :parser parser)))
+      :parser parser
+      :validators validators)))
 
 (defn- parse-seq* [ancesters items]
   (->> items
@@ -96,20 +101,44 @@
   (concat (mapcat post-form-seq (:children item))
           (list item)))
 
-(defn params->values [params item]
+(defn params->values
+  #_(params->values
+     {"user.name" "name" "user.id" ""}
+     (parse-form [:form.user
+                  :text.name
+                  [:number.id {:parser :int}]]))
+  [params item]
   (reduce
-   (fn [[values errors] {:keys [name parser] :as x}]
-     (if-let [[_ value] (find params name)]
-       (try
-         [(assoc values name
-                 (cond-> (nil-if-empty value)
-                         parser parser))
-          errors]
-         (catch Throwable e
-           [values (assoc errors name
-                          {:err e
-                           :item x
-                           :note (or (-> parser meta :note)
-                                     "Invalid value")})]))
+   (fn [[values errors]
+        {:keys [name parser validators] :as x}]
+     (let [[values errors]
+           (if-let [[_ value] (find params name)]
+             (try
+               [(assoc values name
+                       (cond-> (nil-if-empty value)
+                               parser parser))
+                errors]
+               (catch Throwable e
+                 [values (update-in
+                          errors [name]
+                          conj
+                          ^{:err e :item x}
+                          (or (-> parser meta :note)
+                              "Invalid value"))]))
+             [values errors])
+           errors
+           (loop [es errors vds validators]
+             (let [self (values name)
+                   vd (first vds)]
+               (if (nil? vd)
+                 es
+                 (if (vd self)
+                   (recur es (rest vds))
+                   (recur (update-in es [name]
+                                     conj
+                                     ^{:err e :item x}
+                                     (or (-> vd meta :note)
+                                         "Invalid value"))
+                          (rest vds))))))]
        [values errors]))
    [{} {}] (post-form-seq item)))
