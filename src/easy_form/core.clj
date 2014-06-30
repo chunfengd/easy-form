@@ -3,12 +3,40 @@
    [clojure.string :as str]
    [easy-form.util :refer :all]))
 
+(defn create-parser [note func]
+  (with-meta func {:note note}))
+
+(defmacro local-item [& x]
+  (let [x (->> x
+               (map #(cond
+                      (symbol? %) (name %)
+                      (keyword? %) (name %)
+                      (string? %) %
+                      :else (str %))))]
+    `(let [item-name# (str/join "." [(:name ~'item) ~@x])]
+       (~'params item-name#))))
+
+(defmacro $ [& x] `(local-item ~@x))
+
+(defmacro create-validator
+  #_(create-validator
+     "this is a note"
+     (let [user ($)
+           id ($ id)
+           name ($ name)]
+       [id name]))
+  [note & body]
+  (with-meta
+    `(fn [~'params ~'item]
+       ~@body)
+     {:note note}))
+
 (def ^{:dynamic true} *default-parser-pool*
-  {:int (with-meta str->int {:note "Not a valid integer"})
-   :float (with-meta str->num {:note "Not a valid number"})})
+  {:int (create-parser "Not a valid integer" str->int)
+   :float (create-parser "Not a valid number" str->num)})
 
 (def ^{:dynamic true} *default-validator-poll*
-  {:require (with-meta #(-> % nil? not) {:note "Required"})})
+  {:require (create-validator "Required" (-> ($) nil? not))})
 
 (declare parse-element* parse-seq*)
 
@@ -108,10 +136,10 @@
                   :text.name
                   [:number.id {:parser :int}]]))
   [params item]
-  (reduce
-   (fn [[values errors]
-        {:keys [name parser validators] :as x}]
-     (let [[values errors]
+  (let [[values errors]
+        (reduce
+         (fn [[values errors]
+              {:keys [name parser] :as x}]
            (if-let [[_ value] (find params name)]
              (try
                [(assoc values name
@@ -125,20 +153,23 @@
                           ^{:err e :item x}
                           (or (-> parser meta :note)
                               "Invalid value"))]))
-             [values errors])
-           errors
-           (loop [es errors vds validators]
-             (let [self (values name)
-                   vd (first vds)]
-               (if (nil? vd)
-                 es
-                 (if (vd self)
-                   (recur es (rest vds))
-                   (recur (update-in es [name]
-                                     conj
-                                     ^{:err e :item x}
-                                     (or (-> vd meta :note)
-                                         "Invalid value"))
-                          (rest vds))))))]
-       [values errors]))
-   [{} {}] (post-form-seq item)))
+             [values errors]))
+         [{} {}] (post-form-seq item))]
+    [values errors]))
+
+;; (let [[values errors]
+;;       errors
+;;       (loop [es errors vds validators]
+;;         (let [self (values name)
+;;               vd (first vds)]
+;;           (if (nil? vd)
+;;             es
+;;             (if (vd self)
+;;               (recur es (rest vds))
+;;               (recur (update-in es [name]
+;;                                 conj
+;;                                 ^{:err e :item x}
+;;                                 (or (-> vd meta :note)
+;;                                     "Invalid value"))
+;;                      (rest vds))))))]
+;;   [values errors])
