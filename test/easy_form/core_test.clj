@@ -20,7 +20,8 @@
               :children ()
               :gid :username
               :label "Username"
-              :parser anything}))
+              :parser anything
+              :validators anything}))
  (fact "extra option"
        (parse-form [:text.username {:extra "added"}])
        =>
@@ -31,7 +32,8 @@
               :gid :username
               :label "Username"
               :extra "added"
-              :parser anything}))
+              :parser anything
+              :validators anything}))
  (fact "new id"
        (parse-form [:text.username {:id :new-id}])
        =>
@@ -41,7 +43,8 @@
               :children ()
               :gid :new-id
               :label "New-id"
-              :parser anything}))
+              :parser anything
+              :validators anything}))
  (fact "customized label"
        (parse-form [:text.username
                     {:name "new-name"
@@ -53,7 +56,8 @@
               :children ()
               :gid :username
               :label "Username"
-              :parser anything})))
+              :parser anything
+              :validators anything})))
 
 (facts
  "parse a item with children"
@@ -68,6 +72,7 @@
               :name "user"
               :label "User"
               :parser anything
+              :validators anything
               :children
               (just (just {:tag :text
                            :id :name
@@ -75,14 +80,16 @@
                            :name "user.name"
                            :label "Name"
                            :children ()
-                           :parser anything})
+                           :parser anything
+                           :validators anything})
                     (just {:tag :number
                            :id :id
                            :gid :user.id
                            :name "user.id"
                            :label "Id"
                            :children ()
-                           :parser anything}))}))
+                           :parser anything
+                           :validators anything}))}))
  (fact "list children"
        (parse-form [:group.user
                     (list
@@ -96,6 +103,7 @@
               :name "user"
               :label "User"
               :parser anything
+              :validators anything
               :children
               (just (cons
                      (just {:tag :text
@@ -104,7 +112,8 @@
                             :name "user.name"
                             :label "Name"
                             :children ()
-                            :parser anything})
+                            :parser anything
+                            :validators anything})
                      (for [i (range 2)
                            :let [name (str "order" i)
                                  fullname (str "user." name)]]
@@ -114,5 +123,6 @@
                               :name fullname
                               :label (str/capitalize name)
                               :children ()
-                              :parser anything}))))}))
+                              :parser anything
+                              :validators anything}))))}))
  )

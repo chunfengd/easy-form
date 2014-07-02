@@ -8,7 +8,7 @@
 (facts
  "test str->num"
  (fact "pre"
-  (str->num nil) => (throws #"\(string\? s\)")
+  (str->num nil) => nil
   (str->num 1) => (throws #"\(string\? s\)"))
  (fact "number"
   (str->num "1") => 1
