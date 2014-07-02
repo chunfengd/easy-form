@@ -13,8 +13,8 @@
                       (keyword? %) (name %)
                       (string? %) %
                       :else (str %))))]
-    `(let [item-name# (str/join "." [(:name ~'item) ~@x])]
-       (~'params item-name#))))
+    `(let [item-name# (str/join "." [(:name ~'_*item*_) ~@x])]
+       (~'_*values*_ item-name#))))
 
 (defmacro $ [& x] `(local-item ~@x))
 
@@ -27,7 +27,7 @@
        [id name]))
   [note & body]
   (with-meta
-    `(fn [~'params ~'item]
+    `(fn [~'_*values*_ ~'_*item*_]
        ~@body)
      {:note note}))
 
@@ -131,9 +131,9 @@
 
 (defn params->values
   #_(params->values
-     {"user.name" "name" "user.id" ""}
+     {"user.name" "" "user.id" "1"}
      (parse-form [:form.user
-                  :text.name
+                  [:text.name {:validators [:require]}]
                   [:number.id {:parser :int}]]))
   [params item]
   (let [[values errors]
@@ -154,22 +154,28 @@
                           (or (-> parser meta :note)
                               "Invalid value"))]))
              [values errors]))
-         [{} {}] (post-form-seq item))]
+         [{} {}] (post-form-seq item))
+        errors
+        (reduce
+         (fn [errors {:keys [name validators] :as x}]
+           (loop [es errors vds validators]
+             (let [vd (first vds)]
+               (if (nil? vd)
+                 es
+                 (try
+                   (if (vd values x)
+                     es
+                     (update-in errors [name]
+                                conj
+                                ^{:err nil :item x}
+                                (or (-> vd meta :note)
+                                    "Invalid value")))
+                   (catch Throwable e
+                     (update-in errors [name]
+                                conj
+                                ^{:err e :item x}
+                                (or (-> vd meta :note)
+                                    "Invalid value"))))))))
+         errors
+         (post-form-seq item))]
     [values errors]))
-
-;; (let [[values errors]
-;;       errors
-;;       (loop [es errors vds validators]
-;;         (let [self (values name)
-;;               vd (first vds)]
-;;           (if (nil? vd)
-;;             es
-;;             (if (vd self)
-;;               (recur es (rest vds))
-;;               (recur (update-in es [name]
-;;                                 conj
-;;                                 ^{:err e :item x}
-;;                                 (or (-> vd meta :note)
-;;                                     "Invalid value"))
-;;                      (rest vds))))))]
-;;   [values errors])
