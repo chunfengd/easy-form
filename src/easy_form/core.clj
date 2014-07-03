@@ -3,8 +3,9 @@
    [clojure.string :as str]
    [easy-form.util :refer :all]))
 
-(defn create-parser [note func]
-  (with-meta func {:note note}))
+(defn create-parser [note func & [unparser]]
+  (with-meta func {:note note
+                   :unparser unparser}))
 
 (defmacro local-item [& x]
   (let [x (->> x
@@ -55,7 +56,9 @@
         label (or label (and id (-> id name str/capitalize)))
         parser (and parser
                     (if (keyword? parser)
-                      (parser *default-parser-pool*)
+                      (if-let [p (parser *default-parser-pool*)]
+                        p
+                        (throw (Exception. (str "No such parser: " (name parser)))))
                       parser))
         validators (->> validators
                         (map #(if (keyword? %)
@@ -90,25 +93,59 @@
    (vector? item) (parse-element* [] item)
    (seq? item) (parse-seq* [] item)))
 
-(defn render-form [item style]
+(defn get-value [{:keys [name parser]} values params]
+  (let [unparser (-> parser meta :unparser)]
+    (try
+      (or (and (values name) unparser
+               (unparser (values name)))
+          (values name)
+          (params name))
+      (catch Throwable e
+        (params name)))))
+
+(defn render-form [item style
+                   & {:keys [values params disabled]
+                      :or {values {} params {}}}]
   (cond
-   (map? item) (let [{tag :tag} item]
+   (map? item) (let [{tag :tag name :name} item]
                  ((or (tag style) (:default style))
-                  item style))
+                  item style
+                  :values values
+                  :params params
+                  :disabled disabled))
    (seq? item) (for [x item]
-                 (render-form x style))))
+                 (render-form x style
+                              :values values
+                              :params params
+                              :disabled disabled))))
 
 (def default-style
-  {:default (fn [{:keys [tag id name]} style]
-              [:input {:type tag :id id :name name}])
-   :group (fn [{:keys [tag id name children]} style]
+  {:default (fn [{:keys [tag id name label attr] :as item} style
+                 & {:keys [values params disabled]}]
+              [:div
+               [:span label ": "]
+               [:input (merge {:type tag :id name :name name
+                               :value (get-value item values params)
+                               :disabled disabled}
+                              attr)]])
+   :html (fn [{:keys [body]} style & _ ] body)
+   :group (fn [{:keys [tag id name children]} style
+               & {:keys [values params disabled]}]
             [:div
-             (render-form children style)])
-   :form (fn [{:keys [tag id name children attr]} style]
+             (render-form children style
+                          :values values
+                          :params params
+                          :disabled disabled)])
+   :form (fn [{:keys [tag id name children attr]} style
+              & {:keys [values params disabled]}]
            [:form attr
-            (render-form children style)])})
+            (render-form children style
+                         :values values
+                         :params params
+                         :disabled disabled)])
+   })
 
-(defn extract-params
+(defn extract-values
   "(extract-params {\"user.name\" \"name\"
                    \"user.id\" \"1\"
                    \"user.password\" nil})
@@ -120,6 +157,19 @@
                    (map keyword))]
        (assoc-in m ks v)))
    {} params))
+
+(defn map->values [obj]
+  (letfn [(f* [obj & [ancesters]]
+            (let [ancesters (or ancesters [])]
+              (if (map? obj)
+                (lazy-seq
+                 (mapcat (fn [[k v]]
+                           (f* v (conj ancesters
+                                       (name k))))
+                         obj))
+                [[(str/join "." ancesters) obj]])))]
+    (->> (f* obj)
+         (into {}))))
 
 (defn pre-form-seq [item]
   (lazy-seq
