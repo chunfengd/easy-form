@@ -99,9 +99,9 @@
       (or (and (values name) unparser
                (unparser (values name)))
           (values name)
-          (params name))
+          (and params (params name)))
       (catch Throwable e
-        (params name)))))
+        (and params (params name))))))
 
 (defn render-form [item style
                    & {:keys [values params readonly]
