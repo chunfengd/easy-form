@@ -104,7 +104,7 @@
         (params name)))))
 
 (defn render-form [item style
-                   & {:keys [values params disabled]
+                   & {:keys [values params readonly]
                       :or {values {} params {}}}]
   (cond
    (map? item) (let [{tag :tag name :name} item]
@@ -112,37 +112,37 @@
                   item style
                   :values values
                   :params params
-                  :disabled disabled))
+                  :readonly readonly))
    (seq? item) (for [x item]
                  (render-form x style
                               :values values
                               :params params
-                              :disabled disabled))))
+                              :readonly readonly))))
 
 (def default-style
   {:default (fn [{:keys [tag id name label attr] :as item} style
-                 & {:keys [values params disabled]}]
+                 & {:keys [values params readonly]}]
               [:div
                [:span label ": "]
                [:input (merge {:type tag :id name :name name
                                :value (get-value item values params)
-                               :disabled disabled}
+                               :readonly readonly}
                               attr)]])
    :html (fn [{:keys [body]} style & _ ] body)
    :group (fn [{:keys [tag id name children]} style
-               & {:keys [values params disabled]}]
+               & {:keys [values params readonly]}]
             [:div
              (render-form children style
                           :values values
                           :params params
-                          :disabled disabled)])
+                          :readonly readonly)])
    :form (fn [{:keys [tag id name children attr]} style
-              & {:keys [values params disabled]}]
+              & {:keys [values params readonly]}]
            [:form attr
             (render-form children style
                          :values values
                          :params params
-                         :disabled disabled)])
+                         :readonly readonly)])
    })
 
 (defn extract-values

@@ -3,7 +3,7 @@
 
 (defn create-horizontal-style [label-width input-width]
   {:default (fn [{:keys [tag name label attr] :as item} style
-                 & {:keys [values params disabled]}]
+                 & {:keys [values params readonly]}]
               [:div.form-group
                [:label {:class (str "control-label "
                                     "col-sm-" label-width)
@@ -15,10 +15,10 @@
                          :id name
                          :name name
                          :value (get-value item values params)
-                         :disabled disabled}
+                         :readonly readonly}
                         attr)]]])
    :hidden (fn [{:keys [name label attr] :as item} style
-                & {:keys [values params disabled]}]
+                & {:keys [values params readonly]}]
              [:input
               (merge {:type :hidden
                       :id name
@@ -27,35 +27,35 @@
                      attr)])
    :html (fn [{:keys [body]} _ & _] body)
    :group (fn [{:keys [name label children]} style
-               & {:keys [values params disabled]}]
+               & {:keys [values params readonly]}]
             [:field-set {:id name}
              [:h3 label]
              (render-form children style
                           :values values
                           :params params
-                          :disabled disabled)])
+                          :readonly readonly)])
    :form (fn [{:keys [children attr]} style
-              & {:keys [values params disabled]}]
+              & {:keys [values params readonly]}]
            [:form.form-horizontal attr
             (render-form children style
                          :values values
                          :params params
-                         :disabled disabled)])
-   :submit (fn [{:keys [label disabled-label disabled-url]} style
-                & {:keys [values params disabled]}]
-             (if disabled
+                         :readonly readonly)])
+   :submit (fn [{:keys [label readonly-label readonly-url]} style
+                & {:keys [values params readonly]}]
+             (if readonly
                [:div.form-group
                 [:div {:class (str "col-sm-offset-" label-width " "
                                    "col-sm-" input-width)}
-                 [:a.btn.btn-primary {:href disabled-url}
-                  disabled-label]]]
+                 [:a.btn.btn-primary {:href readonly-url}
+                  readonly-label]]]
                [:div.form-group
                 [:div {:class (str "col-sm-offset-" label-width " "
                                    "col-sm-" input-width)}
                  [:button.btn.btn-primary {:type :submit}
                   label]]]))
    :radio (fn [{:keys [name label options attr] :as item} style
-               & {:keys [values params disabled]}]
+               & {:keys [values params readonly]}]
             [:div.form-group
              [:label {:class (str "control-label "
                                   "col-sm-" label-width)
@@ -70,7 +70,9 @@
                           :value option-value
                           :checked (= option-value
                                       (get-value item values params))
-                          :disabled disabled}
+                          :disabled (and readonly
+                                         (not= option-value
+                                               (get-value item values params)))}
                          attr)]
                  option-label])]])
    })
