@@ -200,7 +200,6 @@
                  [values (update-in
                           errors [name]
                           conj
-                          ^{:err e :item x}
                           (or (-> parser meta :note)
                               "Invalid value"))]))
              [values errors]))
@@ -217,13 +216,11 @@
                      es
                      (update-in errors [name]
                                 conj
-                                ^{:err nil :item x}
                                 (or (-> vd meta :note)
                                     "Invalid value")))
                    (catch Throwable e
                      (update-in errors [name]
                                 conj
-                                ^{:err e :item x}
                                 (or (-> vd meta :note)
                                     "Invalid value"))))))))
          errors
